@@ -10,10 +10,10 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>CheckerServer</module>
+        <module>Checker</module>
         <module>TelegramClient</module>
         <module>AssetManaegr</module>
-        <module>CheckerServer</module>
+        <module>Checker</module>
     </modules>
 
     <properties>

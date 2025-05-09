@@ -1,5 +1,0 @@
-upload_dir: /путь/к/директории/для/загрузок
-
-spring:
-  main:
-    banner-mode: off
