@@ -1,0 +1,23 @@
+upload_dir: /путь/к/директории/для/загрузок
+
+logging:
+  level:
+    root: info
+    ru.gnaizel: debug
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+  datasource:
+    url: jdbc:postgresql://localhost:2345/logs-checker #jdbc:postgresql://checker-db:5432/logs-checker
+    username: postgres
+    password: postgres
+  sql:
+    init:
+      mode: always
+  main:
+    banner-mode: off
