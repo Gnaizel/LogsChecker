@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ru.gnaizel.dto.log.LogDto;
-import ru.gnaizel.service.LogsService;
+import ru.gnaizel.service.log.LogsService;
 
 @RestController
 @RequiredArgsConstructor

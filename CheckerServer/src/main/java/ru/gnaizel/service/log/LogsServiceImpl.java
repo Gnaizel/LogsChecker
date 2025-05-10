@@ -1,4 +1,4 @@
-package ru.gnaizel.service;
+package ru.gnaizel.service.log;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

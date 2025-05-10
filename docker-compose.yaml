@@ -1,0 +1,10 @@
+services:
+  checker-db:
+    image: postgres:16.1
+    container_name: checker-db
+    ports:
+      - "2345:5432"
+    environment:
+      - POSTGRES_DB=logs-checker
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres

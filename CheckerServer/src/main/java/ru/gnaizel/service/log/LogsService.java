@@ -1,4 +1,4 @@
-package ru.gnaizel.service;
+package ru.gnaizel.service.log;
 
 import org.springframework.web.multipart.MultipartFile;
 import ru.gnaizel.dto.log.LogDto;

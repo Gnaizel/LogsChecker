@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS USER
+CREATE TABLE IF NOT EXISTS USERS
 (
     id
     BIGINT
@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS USER
     BY
     DEFAULT AS
     IDENTITY
-    NOT
-    NULL,
+    PRIMARY
+    KEY,
     name
     VARCHAR
 (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS USER
     telegram_id BIGINT NOT NULL
     );
 
-CREATE TABLE IF NOT EXISTS LOG
+CREATE TABLE IF NOT EXISTS log
 (
     id
     BIGINT
@@ -25,16 +25,22 @@ CREATE TABLE IF NOT EXISTS LOG
     BY
     DEFAULT AS
     IDENTITY
-    NOT
-    NULL,
+    PRIMARY
+    KEY,
     file_name
     TEXT
     NOT
     NULL,
     file_size_in_megabyte
-    BIGINT
+    DOUBLE
+    PRECISION
     NOT
-    NULL,
+    NULL, -- Use DOUBLE PRECISION for MB size
     owner_id
     BIGINT
+    REFERENCES
+    USERS
+(
+    id
+) -- Add foreign key constraint
 );
