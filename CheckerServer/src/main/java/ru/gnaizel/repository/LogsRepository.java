@@ -2,8 +2,8 @@ package ru.gnaizel.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import ru.gnaizel.model.FileInExpect;
+import ru.gnaizel.model.FileUpload;
 
 @Repository
-public interface QueueRepository extends JpaRepository<FileInExpect, Long> {
+public interface LogsRepository extends JpaRepository<FileUpload, Long> {
 }

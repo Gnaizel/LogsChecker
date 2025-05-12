@@ -18,7 +18,7 @@ public class FileInExpect {
 
     private long ownerTelegramId;
 
-    @JoinColumn(name = "fileId")
+    @JoinColumn(name = "fielId")
     @OneToOne
     private FileUpload file;
 
