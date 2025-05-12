@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Builder
 @Data
-public class LogDto {
+public class LogUploadDto {
     private String fileName;
     private long fileSizeInMegabyte;
 }

@@ -11,13 +11,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Data
 @Entity
-@Table(name = "logs")
-public class Log {
+@Table(name = "log")
+public class FileUpload {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     private String fileName;
+    private String originalFileName;
     private long fileSizeInMegabyte;
 
     private Long ownerId;

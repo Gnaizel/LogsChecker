@@ -4,34 +4,41 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import ru.gnaizel.dto.log.LogDto;
+import ru.gnaizel.dto.log.LogUploadDto;
 import ru.gnaizel.exceptions.FileUploadError;
 import ru.gnaizel.exceptions.FileValidationException;
 import ru.gnaizel.mapper.LogMapper;
-import ru.gnaizel.model.Log;
+import ru.gnaizel.model.FileInExpect;
+import ru.gnaizel.model.FileUpload;
 import ru.gnaizel.repository.LogsRepository;
+import ru.gnaizel.repository.QueueRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class LogsServiceImpl implements LogsService {
     private final LogsRepository logsRepository;
+    private final QueueRepository queueRepository;
 
     @Value("${upload_dir}")
     private String UPLOAD_DIR;
 
 
     @Override
-    public LogDto uploadLog(MultipartFile file, long telegramId) {
+    @Transactional
+    public LogUploadDto uploadLog(MultipartFile file, long telegramId) {
         if (file.isEmpty()) throw new FileValidationException("File is empty");
-        Log fileLog;
+        FileUpload fileLog;
 
         try {
             Path uploadDir = Paths.get(UPLOAD_DIR);
@@ -40,7 +47,7 @@ public class LogsServiceImpl implements LogsService {
                 Files.createDirectories(uploadDir);
             }
 
-            String fileName = file.getOriginalFilename();
+            String fileName = file.getOriginalFilename() + Timestamp.valueOf(LocalDateTime.now());
             if (fileName == null) throw new FileValidationException("File name can't be null");
             Path filePath = uploadDir.resolve(fileName);
 
@@ -48,8 +55,9 @@ public class LogsServiceImpl implements LogsService {
 
             log.info("File: {}, ({}) is upload in server", fileName, file.getSize() / 1048576);
 
-            fileLog = Log.builder()
+            fileLog = FileUpload.builder()
                     .fileName(fileName)
+                    .originalFileName(file.getOriginalFilename())
                     .fileSizeInMegabyte(file.getSize() / 1048576)
                     .ownerId(telegramId)
                     .build();
@@ -57,6 +65,17 @@ public class LogsServiceImpl implements LogsService {
             throw new FileUploadError(e.getMessage());
         }
 
-        return LogMapper.toDto(logsRepository.save(fileLog));
+        FileUpload fileUpload = logsRepository.save(fileLog);
+        queueRepository.save(FileInExpect.builder()
+                .ownerTelegramId(fileUpload.getOwnerId())
+                .file(fileUpload)
+                .build());
+
+        return LogMapper.toDto(fileUpload);
+    }
+
+    @Override
+    public void checkFormat(String url) {
+
     }
 }
