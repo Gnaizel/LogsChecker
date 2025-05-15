@@ -1,10 +1,15 @@
-upload_dir: /путь/к/директории/для/загрузок
+upload_dir: D:/путь/к/директории/для/загрузок
+result_dir: D:/путь/к/директории/для/результатов
 
 logging:
   level:
     root: info
     ru.gnaizel: debug
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10GB
+      max-request-size: 10GB
   jpa:
     hibernate:
       ddl-auto: update
