@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -87,6 +88,7 @@ public class LogsServiceImpl implements LogsService {
     @Transactional
     public long check(String url, long telegramId) {
         AtomicLong countWriteLine = new AtomicLong();
+        countWriteLine.set(0);
         Path resultDir = Paths.get(RESULT_DIR);
 
         try {
@@ -137,13 +139,14 @@ public class LogsServiceImpl implements LogsService {
                 while ((bytesRead = reader.read(buffer)) != -1) {
                     String block = new String(buffer, 0, bytesRead);
 
+                    String finalUrl = url;
                     Future<?> future = executor.submit(() -> {
                         List<String> localResults = new ArrayList<>();
                         String[] lines = block.split("\\r?\\n");
 
                         for (String line : lines) {
-                            if (line.contains(url)) {
-                                localResults.add(processLine(url, line));
+                            if (line.contains(finalUrl)) {
+                                localResults.add(processLine(finalUrl, line));
                             }
                         }
 
@@ -178,7 +181,7 @@ public class LogsServiceImpl implements LogsService {
                 writerFuture.get();
 
                 // Очищаем очередь ожидания (done)
-                queueRepository.deleteByFile(logsRepository.findByFileName(file.toFile().getName()));
+//                queueRepository.deleteByFile(logsRepository.findByFileName(file.toFile().getName()));
             } catch (InterruptedException | ExecutionException e) {
                 log.error("Finalization error: {}", e.getMessage());
             } finally {
@@ -189,14 +192,15 @@ public class LogsServiceImpl implements LogsService {
         return countWriteLine.get();
     }
 
-
     private String processLine(String url, String line) {
-        int f = line.indexOf(':');
-        if (line.contains("htt")) {
- // РЕАЛИЗОВАТЬ !!!
-        } else if (line.indexOf(url) < f) {
-            return line.substring(f + 1);
-        }
-        return line.substring(0, line.indexOf(':', f + 1));
+        String cleanUrl = url.replaceAll("^(?i)https?://", "");
+
+        String regex = "(?i)^(https?://)?" + Pattern.quote(cleanUrl) + ".*?:";
+
+        String result = line.replaceFirst(regex, "");
+
+        result = result.replaceAll("^:|:$", "");
+
+        return result;
     }
 }
