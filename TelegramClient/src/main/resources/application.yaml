@@ -7,6 +7,6 @@ spring:
 
 telegram:
   bot:
-    token: 123
-    name: 123
+    token: 6531094812:AAH-XVCMzQfBlVpetG035gIsuW0YMrxD6GY
+    name: Check AZ
     download-path: путь/к/установке/скачиванию

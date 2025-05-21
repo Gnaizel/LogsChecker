@@ -29,8 +29,9 @@ public class ClientImpl implements Client {
         body.add("file", file);
         body.add("telegram-id", telegramId);
 
+
         HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<UploadLog> response = restTemplate.postForEntity(URL, request, UploadLog.class);
+        ResponseEntity<UploadLog> response = restTemplate.postForEntity(URL + "/uploads", request, UploadLog.class);
 
         if (response.getStatusCode() == HttpStatus.CREATED) {
             throw new UploadException("Upload error, status: " + response.getStatusCode());
@@ -47,7 +48,7 @@ public class ClientImpl implements Client {
         body.add("url", url);
         body.add("telegram-id", telegramId);
         HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<Object> response = restTemplate.postForEntity(URL, request, Object.class);
+        ResponseEntity<Object> response = restTemplate.postForEntity(URL + "/checks", request, Object.class);
 
         if (response.getStatusCode() == HttpStatus.ACCEPTED) {
             throw new CheckedException("Check request failed, status: " + response.getStatusCode());

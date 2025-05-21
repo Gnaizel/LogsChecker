@@ -1,7 +1,11 @@
 package ru.gnaizel;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.FileSystemResource;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
@@ -20,17 +24,21 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
+@SpringBootApplication
 @RequiredArgsConstructor
 public class TelegramBotApp extends TelegramLongPollingBot {
     @Value("${telegram.bot.token}")
-    private static String TELEGRAM_BOT_TOKEN;
+    private String TELEGRAM_BOT_TOKEN;
     @Value("${telegram.bot.name}")
-    private static String TELEGRAM_BOT_USERNAME;
+    private String TELEGRAM_BOT_USERNAME;
     @Value("${telegram.bot.download-path}")
-    private static String TELEGRAM_BOT_DOWNLOAD_PATH;
+    private String TELEGRAM_BOT_DOWNLOAD_PATH;
 
     private final Map<Long, CheckCommandState> userCheckCommandState = new HashMap<>();
 
@@ -38,9 +46,11 @@ public class TelegramBotApp extends TelegramLongPollingBot {
     private Client client;
 
     public static void main(String[] args) {
+        ConfigurableApplicationContext context = SpringApplication.run(TelegramBotApp.class, args);
+
         try {
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
-            botsApi.registerBot(new TelegramBotApp());
+            botsApi.registerBot(context.getBean(TelegramBotApp.class));
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -48,15 +58,12 @@ public class TelegramBotApp extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            String message = update.getMessage().getText();
-            long chatId = update.getMessage().getChatId();
+        long chatId = update.getMessage().getChatId();
 
-            if (userCheckCommandState.containsKey(chatId)) {
-                handleCheckCommandContinuation(update);
-            } else {
-                handleGeneralMessage(update);
-            }
+        if (userCheckCommandState.containsKey(chatId)) {
+            handleCheckCommandContinuation(update);
+        } else {
+            handleGeneralMessage(update);
         }
     }
 
@@ -74,25 +81,43 @@ public class TelegramBotApp extends TelegramLongPollingBot {
 
     private void handleCheckCommandContinuation(Update update) {
         long chatId = update.getMessage().getChatId();
-
         CheckCommandState state = userCheckCommandState.get(chatId);
 
         switch (state.getStep()) {
             case 0:
+                if (!update.getMessage().hasText()) {
+                    sendMessage(chatId, "Пожалуйста, отправьте URL в текстовом формате");
+                    return;
+                }
                 state.setUrl(update.getMessage().getText());
                 state.setStep(1);
-                sendMessage(chatId, "Теперь пришлите мне имя файла txt:");
+                sendMessage(chatId, "Теперь пришлите мне файл в формате txt:");
                 break;
+
             case 1:
-                if (!update.getMessage().hasDocument()) throw new UploadException("Сообщение должно содержать файл");
-                java.io.File downloadFile = handleDocument(update);
-                client.uploadLog(new FileSystemResource(downloadFile), chatId);
-                sendMessage(chatId, "Сервер 'Checker' получил вай файл");
-                state.setFile(downloadFile.getName());
-                state.setStep(2);
-                sendMessage(chatId, "Обработка данных...\nURL: " + state.getUrl() + "\nFile: " + state.getFile());
-                client.checkRequest(state.getUrl(), chatId);
-                userCheckCommandState.remove(chatId);
+                if (!update.getMessage().hasDocument()) {
+                    sendMessage(chatId, "Пожалуйста, отправьте файл как документ (не как фото или другой формат)");
+                    return;
+                }
+                try {
+                    java.io.File downloadFile = handleDocument(update);
+                    log.info("Файл получен: {}", downloadFile.getAbsolutePath());
+
+                    client.uploadLog(new FileSystemResource(downloadFile), chatId);
+                    sendMessage(chatId, "Сервер 'Checker' получил ваш файл");
+
+                    state.setFile(downloadFile.getName());
+                    state.setStep(2);
+
+                    sendMessage(chatId, "Обработка данных...\nURL: " + state.getUrl() + "\nFile: " + state.getFile());
+                    client.checkRequest(state.getUrl(), chatId);
+
+                } catch (Exception e) {
+                    log.error("Ошибка обработки файла", e);
+                    sendMessage(chatId, "Ошибка при обработке файла: " + e.getMessage());
+                } finally {
+                    userCheckCommandState.remove(chatId);
+                }
                 break;
         }
     }
@@ -103,7 +128,7 @@ public class TelegramBotApp extends TelegramLongPollingBot {
         String fileName = document.getFileName();
         String fileId = document.getFileId();
         java.io.File downloadFile;
-
+        log.info("fileId: {}, fileName: {}/n Dockument: {}", fileId, fileName, document.toString());
         GetFile getFile = new GetFile();
         getFile.setFileId(fileId);
         try {
@@ -120,6 +145,13 @@ public class TelegramBotApp extends TelegramLongPollingBot {
     private java.io.File downloadFile(String filePath, String fileName) {
         String fullPath = "https://api.telegram.org/file/bot" + getBotToken() + "/" + filePath;
         java.io.File downloadFile = new java.io.File(TELEGRAM_BOT_DOWNLOAD_PATH + fileName);
+        try {
+            if (Files.exists(downloadFile.toPath())) {
+                Files.createDirectory(downloadFile.toPath());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         try (InputStream is = new URL(fullPath).openStream();
              FileOutputStream fos = new FileOutputStream(downloadFile)) {
@@ -146,7 +178,7 @@ public class TelegramBotApp extends TelegramLongPollingBot {
             case "check":
                 startCheckCommand(update);
                 break;
-            case "statistic":
+            case "status":
                 sendMessage(chatId, "Функция статистики еще не реализована.");
                 break;
             default:
