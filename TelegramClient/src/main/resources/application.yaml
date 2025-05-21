@@ -1,0 +1,12 @@
+logs-service:
+  url: http://logs-service:8080
+
+spring:
+  main:
+    banner-mode: off
+
+telegram:
+  bot:
+    token: 123
+    name: 123
+    download-path: путь/к/установке/скачиванию

@@ -6,4 +6,5 @@ import ru.gnaizel.model.FileUpload;
 
 @Repository
 public interface LogsRepository extends JpaRepository<FileUpload, Long> {
+    FileUpload findByFileName(String fileName);
 }
