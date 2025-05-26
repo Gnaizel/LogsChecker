@@ -1,9 +1,25 @@
 logs-service:
   url: http://logs-service:8080
 
+server:
+  port: 9090
 spring:
   main:
     banner-mode: off
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  datasource:
+    url: jdbc:postgresql://localhost:3456/user-db
+    password: postgres
+    username: postgres
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
 
 telegram:
   bot:

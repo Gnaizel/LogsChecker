@@ -6,12 +6,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import ru.gnaizel.dto.log.LogUploadDto;
-import ru.gnaizel.exceptions.FileUploadError;
-import ru.gnaizel.exceptions.FileValidationException;
+import ru.gnaizel.dto.log.LogFileShortDto;
+import ru.gnaizel.dto.log.LogFileUploadInfoDto;
+import ru.gnaizel.enums.log.FileSizeUnit;
+import ru.gnaizel.exception.file.FileUploadError;
+import ru.gnaizel.exception.file.FileValidationException;
 import ru.gnaizel.mapper.LogMapper;
-import ru.gnaizel.model.FileInExpect;
-import ru.gnaizel.model.FileUpload;
+import ru.gnaizel.model.LogFileInExpect;
+import ru.gnaizel.model.LogFile;
 import ru.gnaizel.repository.LogsRepository;
 import ru.gnaizel.repository.QueueRepository;
 
@@ -35,6 +37,7 @@ import java.util.regex.Pattern;
 public class LogsServiceImpl implements LogsService {
     private final LogsRepository logsRepository;
     private final QueueRepository queueRepository;
+    private final LogMapper logMapper;
 
     @Value("${upload_dir}")
     private String UPLOAD_DIR;
@@ -46,9 +49,9 @@ public class LogsServiceImpl implements LogsService {
 
     @Override
     @Transactional
-    public LogUploadDto uploadLog(MultipartFile file, long telegramId) {
+    public LogFileUploadInfoDto uploadLog(MultipartFile file, long telegramId) {
         if (file.isEmpty()) throw new FileValidationException("File is empty");
-        FileUpload fileLog;
+        LogFile fileLog;
 
         try {
             Path uploadDir = Paths.get(UPLOAD_DIR);
@@ -65,131 +68,232 @@ public class LogsServiceImpl implements LogsService {
 
             log.info("File: {}, ({}) is upload in server", fileName, file.getSize() / 1048576);
 
-            fileLog = FileUpload.builder()
+            fileLog = LogFile.builder()
                     .fileName(fileName)
                     .originalFileName(file.getOriginalFilename())
-                    .fileSizeInMegabyte(file.getSize() / 1048576)
                     .ownerId(telegramId)
+                    .cleanLineCount(0L)
+                    .allLineCount(0L)
                     .build();
+
+            long fileSize = file.getSize();
+            if (fileSize < 1024) {
+                fileLog.setFileSize(fileSize);
+                fileLog.setFileSizeUnit(FileSizeUnit.BYTE);
+            } else if (fileSize < 1024 * 1024) {
+                // Килобайты
+                long sizeInKB = fileSize / 1024;
+                fileLog.setFileSize(sizeInKB);
+                fileLog.setFileSizeUnit(FileSizeUnit.KILOBYTE);
+            } else if (fileSize < 1024 * 1024 * 1024) {
+                // Мегабайты
+                long sizeInMB = fileSize / (1024 * 1024);
+                fileLog.setFileSize(sizeInMB);
+                fileLog.setFileSizeUnit(FileSizeUnit.MEGABYTE);
+            } else {
+                // Гигабайты
+                long sizeInGB = fileSize / (1024 * 1024 * 1024);
+                fileLog.setFileSize(sizeInGB);
+                fileLog.setFileSizeUnit(FileSizeUnit.GIGABYTE);
+            }
         } catch (IOException e) {
             throw new FileUploadError(e.getMessage());
         }
 
-        FileUpload fileUpload = logsRepository.save(fileLog);
-        queueRepository.save(FileInExpect.builder()
+        LogFile fileUpload = logsRepository.save(fileLog);
+        queueRepository.save(LogFileInExpect.builder()
                 .ownerTelegramId(fileUpload.getOwnerId())
                 .file(fileUpload)
                 .build());
 
-        return LogMapper.toDto(fileUpload);
+        return logMapper.toUploadInfoDto(fileUpload);
     }
 
     @Override
     @Transactional
-    public long check(String url, long telegramId) {
+    public List<LogFileShortDto> check(String url, long telegramId) {
+        AtomicLong countAllLine = new AtomicLong();
         AtomicLong countWriteLine = new AtomicLong();
         countWriteLine.set(0);
-        Path resultDir = Paths.get(RESULT_DIR);
 
+        createResultDirectory();
+        List<LogFile> logFiles = getLogFiles(telegramId);
+        List<Path> filePaths = getFilePaths(logFiles);
+
+        for (Path file : filePaths) {
+            processFile(url, file, countAllLine, countWriteLine, logFiles);
+        }
+
+        return mapToShortDto(logFiles);
+    }
+
+    // Основные вспомогательные методы
+    private void createResultDirectory() {
+        Path resultDir = Paths.get(RESULT_DIR);
         try {
             if (!Files.exists(resultDir)) Files.createDirectories(resultDir);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to create result directory", e);
         }
+    }
 
-        List<Path> filePaths = queueRepository.findByOwnerTelegramId(telegramId).stream()
-                .map(FileInExpect::getFile)
+    private List<LogFile> getLogFiles(long telegramId) {
+        return queueRepository.findByOwnerTelegramId(telegramId).stream()
+                .map(LogFileInExpect::getFile)
+                .toList();
+    }
+
+    private List<Path> getFilePaths(List<LogFile> logFiles) {
+        return logFiles.stream()
                 .map(fileUpload -> Paths.get(UPLOAD_DIR).resolve(fileUpload.getFileName()))
                 .toList();
+    }
 
-        for (Path file : filePaths) {
-            ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
-            BlockingQueue<List<String>> resultsQueue = new LinkedBlockingQueue<>();
-            File resultFile = resultDir.resolve(file.getFileName()).toFile();
+    private List<LogFileShortDto> mapToShortDto(List<LogFile> logFiles) {
+        return logFiles.stream()
+                .map(logMapper::toShortDto)
+                .toList();
+    }
 
-            List<Future<?>> futures = new ArrayList<>();
+    // Методы обработки файлов
+    private void processFile(String url, Path file, AtomicLong countAllLine,
+                             AtomicLong countWriteLine, List<LogFile> logFiles) {
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
+        BlockingQueue<List<String>> resultsQueue = new LinkedBlockingQueue<>();
+        File resultFile = getResultFile(file);
 
-            // Поток записи
-            Future<?> writerFuture = executor.submit(() -> {
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultFile))) {
-                    while (true) {
-                        List<String> lines = resultsQueue.poll(1, TimeUnit.SECONDS);
-                        if (lines == null) continue;
-                        if (lines.isEmpty()) break; // сигнал завершения
+        Future<?> writerFuture = startWriterThread(executor, resultsQueue, resultFile, countWriteLine);
+        processFileContent(url, file, executor, resultsQueue, countAllLine);
+        waitForProcessingTasks(executor, resultsQueue, writerFuture);
 
-                        for (String line : lines) {
-                            countWriteLine.incrementAndGet();
-                            writer.write(line);
-                            writer.newLine();
-                        }
-                    }
-                } catch (IOException | InterruptedException e) {
-                    log.error("Writer thread error: {}", e.getMessage());
-                    Thread.currentThread().interrupt();
-                }
-            });
+        LogFile fileFromDataBase = updateFileStatistics(file, countAllLine, countWriteLine);
+        cleanUpResources(executor, fileFromDataBase);
+    }
 
-            // Чтение и разбиение файла на блоки
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(new FileInputStream(file.toFile())))) {
+    private File getResultFile(Path file) {
+        return Paths.get(RESULT_DIR).resolve(file.getFileName()).toFile();
+    }
 
-                char[] buffer = new char[BLOCK_SIZE];
-                int bytesRead;
+    // Методы работы с потоками
+    private Future<?> startWriterThread(ExecutorService executor,
+                                        BlockingQueue<List<String>> resultsQueue,
+                                        File resultFile,
+                                        AtomicLong countWriteLine) {
+        return executor.submit(() -> runWriter(resultsQueue, resultFile, countWriteLine));
+    }
 
-                while ((bytesRead = reader.read(buffer)) != -1) {
-                    String block = new String(buffer, 0, bytesRead);
+    private void runWriter(BlockingQueue<List<String>> resultsQueue,
+                           File resultFile,
+                           AtomicLong countWriteLine) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultFile))) {
+            while (!Thread.currentThread().isInterrupted()) {
+                List<String> lines = resultsQueue.poll(1, TimeUnit.SECONDS);
+                if (lines == null) continue;
+                if (lines.isEmpty()) break;
 
-                    String finalUrl = url;
-                    Future<?> future = executor.submit(() -> {
-                        List<String> localResults = new ArrayList<>();
-                        String[] lines = block.split("\\r?\\n");
-
-                        for (String line : lines) {
-                            if (line.contains(finalUrl)) {
-                                localResults.add(processLine(finalUrl, line));
-                            }
-                        }
-
-                        try {
-                            resultsQueue.put(localResults);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
-
-                    futures.add(future);
-                }
-
-            } catch (IOException e) {
-                log.error("Error reading file {}: {}", file.getFileName(), e.getMessage());
+                writeLines(writer, lines, countWriteLine);
             }
+        } catch (IOException | InterruptedException e) {
+            log.error("Writer thread error: {}", e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
 
-            // Дождаться завершения всех задач обработки блоков
-            for (Future<?> f : futures) {
-                try {
-                    f.get(); // ждем каждую
-                } catch (InterruptedException | ExecutionException e) {
-                    log.error("Error in processing task: {}", e.getMessage());
-                }
-            }
+    private void writeLines(BufferedWriter writer, List<String> lines, AtomicLong countWriteLine) throws IOException {
+        for (String line : lines) {
+            countWriteLine.incrementAndGet();
+            writer.write(line);
+            writer.newLine();
+        }
+    }
 
-            try {
-                // Отправляем сигнал завершения писателю
-                resultsQueue.put(new ArrayList<>());
+    // Методы обработки содержимого файла
+    private void processFileContent(String url, Path file,
+                                    ExecutorService executor,
+                                    BlockingQueue<List<String>> resultsQueue,
+                                    AtomicLong countAllLine) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file.toFile()))) {
+            processFileBlocks(url, executor, resultsQueue, reader, countAllLine);
+        } catch (IOException e) {
+            log.error("Error reading file {}: {}", file.getFileName(), e.getMessage());
+        }
+    }
 
-                // Ждём завершения записи
-                writerFuture.get();
+    private void processFileBlocks(String url,
+                                   ExecutorService executor,
+                                   BlockingQueue<List<String>> resultsQueue,
+                                   BufferedReader reader,
+                                   AtomicLong countAllLine) throws IOException {
+        char[] buffer = new char[BLOCK_SIZE];
+        int bytesRead;
 
-                // Очищаем очередь ожидания (done)
-//                queueRepository.deleteByFile(logsRepository.findByFileName(file.toFile().getName()));
-            } catch (InterruptedException | ExecutionException e) {
-                log.error("Finalization error: {}", e.getMessage());
-            } finally {
-                executor.shutdownNow(); // жёсткое завершение
+        while ((bytesRead = reader.read(buffer)) != -1) {
+            submitProcessingTask(url, buffer, bytesRead, executor, resultsQueue, countAllLine);
+        }
+    }
+
+    private void submitProcessingTask(String url,
+                                      char[] buffer,
+                                      int bytesRead,
+                                      ExecutorService executor,
+                                      BlockingQueue<List<String>> resultsQueue,
+                                      AtomicLong countAllLine) {
+        String block = new String(buffer, 0, bytesRead);
+        executor.submit(() -> processBlock(url, block, resultsQueue, countAllLine));
+    }
+
+    private void processBlock(String url,
+                              String block,
+                              BlockingQueue<List<String>> resultsQueue,
+                              AtomicLong countAllLine) {
+        List<String> localResults = new ArrayList<>();
+        String[] lines = block.split("\\r?\\n");
+
+        for (String line : lines) {
+            countAllLine.incrementAndGet();
+            if (line.contains(url)) {
+                localResults.add(processLine(url, line));
             }
         }
 
-        return countWriteLine.get();
+        try {
+            resultsQueue.put(localResults);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // Методы завершения обработки
+    private void waitForProcessingTasks(ExecutorService executor,
+                                        BlockingQueue<List<String>> resultsQueue,
+                                        Future<?> writerFuture) {
+        try {
+            resultsQueue.put(new ArrayList<>());
+            writerFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Finalization error: {}", e.getMessage());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private LogFile updateFileStatistics(Path file,
+                                         AtomicLong countAllLine,
+                                         AtomicLong countWriteLine) {
+        LogFile fileFromDataBase = logsRepository.findByFileName(file.getFileName().toString());
+        fileFromDataBase.setAllLineCount(countAllLine.get());
+        fileFromDataBase.setCleanLineCount(countWriteLine.get());
+        logsRepository.save(fileFromDataBase);
+        log.debug("Updated line statistics in DB");
+        return fileFromDataBase;
+    }
+
+    private void cleanUpResources(ExecutorService executor, LogFile fileFromDataBase) {
+        try {
+            queueRepository.deleteByFile(fileFromDataBase);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private String processLine(String url, String line) {

@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class FileInExpect {
+public class LogFileInExpect {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
@@ -20,6 +20,6 @@ public class FileInExpect {
 
     @JoinColumn(name = "fileId")
     @OneToOne
-    private FileUpload file;
+    private LogFile file;
 
 }
