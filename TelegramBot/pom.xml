@@ -10,7 +10,7 @@
     </parent>
 
     <groupId>ru.gnaizel</groupId>
-    <artifactId>TelegramClient</artifactId>
+    <artifactId>TelegramBot</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -75,6 +75,7 @@
     </dependencies>
 
     <build>
+        <finalName>TelegramBot</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

@@ -18,6 +18,7 @@ import ru.gnaizel.repository.LogsRepository;
 import ru.gnaizel.repository.QueueRepository;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,6 +26,7 @@ import java.nio.file.StandardCopyOption;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
@@ -42,8 +44,7 @@ public class LogsServiceImpl implements LogsService {
     @Value("${upload_dir}")
     private String UPLOAD_DIR;
 
-    private static final int NUM_THREADS = Runtime.getRuntime().availableProcessors(); // Количество потоков равно количеству ядер
-    private static final int BLOCK_SIZE = 1024 * 1024 * 10;
+    private static final int NUM_THREADS = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     @Value("${result_dir}")
     private String RESULT_DIR;
 
@@ -81,17 +82,14 @@ public class LogsServiceImpl implements LogsService {
                 fileLog.setFileSize(fileSize);
                 fileLog.setFileSizeUnit(FileSizeUnit.BYTE);
             } else if (fileSize < 1024 * 1024) {
-                // Килобайты
                 long sizeInKB = fileSize / 1024;
                 fileLog.setFileSize(sizeInKB);
                 fileLog.setFileSizeUnit(FileSizeUnit.KILOBYTE);
             } else if (fileSize < 1024 * 1024 * 1024) {
-                // Мегабайты
                 long sizeInMB = fileSize / (1024 * 1024);
                 fileLog.setFileSize(sizeInMB);
                 fileLog.setFileSizeUnit(FileSizeUnit.MEGABYTE);
             } else {
-                // Гигабайты
                 long sizeInGB = fileSize / (1024 * 1024 * 1024);
                 fileLog.setFileSize(sizeInGB);
                 fileLog.setFileSizeUnit(FileSizeUnit.GIGABYTE);
@@ -112,22 +110,17 @@ public class LogsServiceImpl implements LogsService {
     @Override
     @Transactional
     public List<LogFileShortDto> check(String url, long telegramId) {
-        AtomicLong countAllLine = new AtomicLong();
-        AtomicLong countWriteLine = new AtomicLong();
-        countWriteLine.set(0);
-
         createResultDirectory();
         List<LogFile> logFiles = getLogFiles(telegramId);
         List<Path> filePaths = getFilePaths(logFiles);
 
         for (Path file : filePaths) {
-            processFile(url, file, countAllLine, countWriteLine, logFiles);
+            processFile(url, file, logFiles);
         }
 
         return mapToShortDto(logFiles);
     }
 
-    // Основные вспомогательные методы
     private void createResultDirectory() {
         Path resultDir = Paths.get(RESULT_DIR);
         try {
@@ -155,9 +148,10 @@ public class LogsServiceImpl implements LogsService {
                 .toList();
     }
 
-    // Методы обработки файлов
-    private void processFile(String url, Path file, AtomicLong countAllLine,
-                             AtomicLong countWriteLine, List<LogFile> logFiles) {
+    private void processFile(String url, Path file, List<LogFile> logFiles) {
+        AtomicLong countAllLine = new AtomicLong();
+        AtomicLong countWriteLine = new AtomicLong();
+
         ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
         BlockingQueue<List<String>> resultsQueue = new LinkedBlockingQueue<>();
         File resultFile = getResultFile(file);
@@ -174,7 +168,6 @@ public class LogsServiceImpl implements LogsService {
         return Paths.get(RESULT_DIR).resolve(file.getFileName()).toFile();
     }
 
-    // Методы работы с потоками
     private Future<?> startWriterThread(ExecutorService executor,
                                         BlockingQueue<List<String>> resultsQueue,
                                         File resultFile,
@@ -186,12 +179,22 @@ public class LogsServiceImpl implements LogsService {
                            File resultFile,
                            AtomicLong countWriteLine) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultFile))) {
+            List<String> batch = new ArrayList<>(1000);
             while (!Thread.currentThread().isInterrupted()) {
                 List<String> lines = resultsQueue.poll(1, TimeUnit.SECONDS);
                 if (lines == null) continue;
-                if (lines.isEmpty()) break;
+                if (lines.isEmpty()) {
+                    if (!batch.isEmpty()) {
+                        writeBatch(writer, batch, countWriteLine);
+                    }
+                    break;
+                }
 
-                writeLines(writer, lines, countWriteLine);
+                batch.addAll(lines);
+                if (batch.size() >= 1000) {
+                    writeBatch(writer, batch, countWriteLine);
+                    batch.clear();
+                }
             }
         } catch (IOException | InterruptedException e) {
             log.error("Writer thread error: {}", e.getMessage());
@@ -199,76 +202,64 @@ public class LogsServiceImpl implements LogsService {
         }
     }
 
-    private void writeLines(BufferedWriter writer, List<String> lines, AtomicLong countWriteLine) throws IOException {
-        for (String line : lines) {
-            countWriteLine.incrementAndGet();
+    private void writeBatch(BufferedWriter writer, List<String> batch, AtomicLong countWriteLine) throws IOException {
+        for (String line : batch) {
             writer.write(line);
             writer.newLine();
         }
+        countWriteLine.addAndGet(batch.size());
     }
 
-    // Методы обработки содержимого файла
     private void processFileContent(String url, Path file,
                                     ExecutorService executor,
                                     BlockingQueue<List<String>> resultsQueue,
                                     AtomicLong countAllLine) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(file.toFile()))) {
-            processFileBlocks(url, executor, resultsQueue, reader, countAllLine);
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(
+                        new FileInputStream(file.toFile()), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                submitProcessingTask(url, line, executor, resultsQueue, countAllLine);
+            }
         } catch (IOException e) {
             log.error("Error reading file {}: {}", file.getFileName(), e.getMessage());
         }
     }
 
-    private void processFileBlocks(String url,
-                                   ExecutorService executor,
-                                   BlockingQueue<List<String>> resultsQueue,
-                                   BufferedReader reader,
-                                   AtomicLong countAllLine) throws IOException {
-        char[] buffer = new char[BLOCK_SIZE];
-        int bytesRead;
-
-        while ((bytesRead = reader.read(buffer)) != -1) {
-            submitProcessingTask(url, buffer, bytesRead, executor, resultsQueue, countAllLine);
-        }
-    }
-
     private void submitProcessingTask(String url,
-                                      char[] buffer,
-                                      int bytesRead,
+                                      String line,
                                       ExecutorService executor,
                                       BlockingQueue<List<String>> resultsQueue,
                                       AtomicLong countAllLine) {
-        String block = new String(buffer, 0, bytesRead);
-        executor.submit(() -> processBlock(url, block, resultsQueue, countAllLine));
+        executor.submit(() -> processLine(url, line, resultsQueue, countAllLine));
     }
 
-    private void processBlock(String url,
-                              String block,
-                              BlockingQueue<List<String>> resultsQueue,
-                              AtomicLong countAllLine) {
-        List<String> localResults = new ArrayList<>();
-        String[] lines = block.split("\\r?\\n");
-
-        for (String line : lines) {
+    private void processLine(String url,
+                             String line,
+                             BlockingQueue<List<String>> resultsQueue,
+                             AtomicLong countAllLine) {
+        try {
             countAllLine.incrementAndGet();
             if (line.contains(url)) {
-                localResults.add(processLine(url, line));
+                String processedLine = processLine(url, line);
+                resultsQueue.put(Collections.singletonList(processedLine));
             }
-        }
-
-        try {
-            resultsQueue.put(localResults);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.error("Error processing line: {}", e.getMessage());
         }
     }
 
-    // Методы завершения обработки
     private void waitForProcessingTasks(ExecutorService executor,
                                         BlockingQueue<List<String>> resultsQueue,
                                         Future<?> writerFuture) {
         try {
-            resultsQueue.put(new ArrayList<>());
+            resultsQueue.put(Collections.emptyList());
+            executor.shutdown();
+            if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
+                log.warn("Processing timeout exceeded");
+            }
             writerFuture.get();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Finalization error: {}", e.getMessage());
@@ -297,14 +288,8 @@ public class LogsServiceImpl implements LogsService {
     }
 
     private String processLine(String url, String line) {
-        String cleanUrl = url.replaceAll("^(?i)https?://", "");
-
-        String regex = "(?i)^(https?://)?" + Pattern.quote(cleanUrl) + ".*?:";
-
-        String result = line.replaceFirst(regex, "");
-
-        result = result.replaceAll("^:|:$", "");
-
-        return result;
+        String cleanUrl = Pattern.quote(url.replaceAll("^(?i)https?://", ""));
+        return line.replaceAll("(?i)^(https?://)?" + cleanUrl + ".*?:", "")
+                .replaceAll("^:|:$", "");
     }
 }

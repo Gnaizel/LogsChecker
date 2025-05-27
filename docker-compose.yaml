@@ -1,11 +1,16 @@
 services:
-  user-db:
-    image: postgres:16.1
-    container_name: user-db
+  checker-service:
+    build:
+      context: ./CheckerServer
+      dockerfile: Dockerfile
+    container_name: checker-service
     ports:
-      - "3456:5432"
+      - "8080:8080"
+    depends_on:
+      - checker-db
+    restart: unless-stopped
     environment:
-      - POSTGRES_DB=user-db
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://checker-db:5432/logs-checker
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
 
@@ -16,5 +21,30 @@ services:
       - "2345:5432"
     environment:
       - POSTGRES_DB=logs-checker
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  telegram-bot:
+    build:
+      context: ./TelegramBot
+      dockerfile: Dockerfile
+    container_name: telegram-bot
+    ports:
+      - "9090:9090"
+    depends_on:
+      - user-db
+    restart: unless-stopped
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/user-db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  user-db:
+    image: postgres:16.1
+    container_name: user-db
+    ports:
+      - "3456:5432"
+    environment:
+      - POSTGRES_DB=user-db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres

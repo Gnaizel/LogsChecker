@@ -17,8 +17,8 @@
     </parent>
 
     <modules>
-        <module>TelegramClient</module>
-        <module>AssetManaegr</module>
+        <module>TelegramBot</module>
+        <module>TelegramBot(old)</module>
         <module>CheckerServer</module>
     </modules>
 
