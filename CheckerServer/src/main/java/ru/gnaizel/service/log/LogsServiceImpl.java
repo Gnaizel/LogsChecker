@@ -75,6 +75,7 @@ public class LogsServiceImpl implements LogsService {
                     .ownerId(telegramId)
                     .cleanLineCount(0L)
                     .allLineCount(0L)
+                    .updateTime(Timestamp.valueOf(LocalDateTime.now()))
                     .build();
 
             long fileSize = file.getSize();

@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS log (
     file_size DOUBLE PRECISION NOT NULL,
     file_size_unit VARCHAR(20),
     owner_id BIGINT NOT NULL ,
-    all_line_count BIGINT
+    all_line_count BIGINT,
+    upload_time TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS log_file_in_expect (

@@ -18,8 +18,9 @@
 
     <modules>
         <module>TelegramBot</module>
-        <module>TelegramBot(old)</module>
+<!--        <module>TelegramBot(old)</module>-->
         <module>CheckerServer</module>
+        <module>AssetManager</module>
     </modules>
 
     <properties>

@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import ru.gnaizel.enums.log.FileSizeUnit;
 
+import java.sql.Timestamp;
+
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
@@ -29,4 +31,5 @@ public class LogFile {
     private Long ownerId;
     private Long cleanLineCount;
     private Long allLineCount;
+    private Timestamp updateTime;
 }
