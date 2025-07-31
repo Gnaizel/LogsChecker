@@ -1,5 +1,0 @@
-telethon
-colorama~=0.4.6
-art~=6.1
-pysocks~=1.7.1
-peewee~=3.17.0

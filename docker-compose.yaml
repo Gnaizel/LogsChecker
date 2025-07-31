@@ -24,39 +24,33 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
 
-  services:
-    telegram-bot:
-      image: telegram-file-downloader:latest
-      build: .
-      environment:
-        - TELEGRAM_API_ID=your_api_id
-        - TELEGRAM_API_HASH=your_api_hash
-        - TELEGRAM_PHONE=+1234567890
-        - TELEGRAM_CODE=12345
-        - DOWNLOAD_DIR=/data/downloads
-      volumes:
-        - telegram_data:/app/tdlib_db
-        - downloads:/data/downloads
-      restart: unless-stopped
-
-  volumes:
-    telegram_data:
-    downloads:
-
-  telegram-bot:
+  asset-menagger:
     build:
-      context: ./TelegramBot
+      context: ./AssetMenagger/ScripteTG
       dockerfile: Dockerfile
-    container_name: telegram-bot
     ports:
-      - "9090:9090"
-    depends_on:
-      - user-db
-    restart: unless-stopped
+      - "8000:8000"
+    volumes:
+      - .:/app
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/user-db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      PYTHONUNBUFFERED: 1
+    tty: true
+    restart: always
+
+#  telegram-bot:
+#    build:
+#      context: ./TelegramBot
+#      dockerfile: Dockerfile
+#    container_name: telegram-bot
+#    ports:
+#      - "9090:9090"
+#    depends_on:
+#      - user-db
+#    restart: unless-stopped
+#    environment:
+#      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/user-db
+#      - POSTGRES_USER=postgres
+#      - POSTGRES_PASSWORD=postgres
 
   user-db:
     image: postgres:16.1
