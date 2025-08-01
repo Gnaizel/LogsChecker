@@ -19,6 +19,7 @@
     <modules>
         <module>TelegramBot</module>
         <module>CheckerServer</module>
+        <module>AssetMenagger/UploadService</module>
     </modules>
 
     <properties>

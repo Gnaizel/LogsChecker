@@ -21,8 +21,8 @@ public class LogsController {
         return logsService.uploadLog(file, telegramId);
     }
 
-    @PatchMapping("/checks")
-    public List<LogFileShortDto> check(@RequestParam("url") String url, @RequestParam("telegram-id") long telegramId) {
+    @PatchMapping("/checks/{url}")
+    public List<LogFileShortDto> check(@PathVariable("url") String url, @RequestParam("telegram-id") long telegramId) {
         return logsService.check(url, telegramId);
     }
 }

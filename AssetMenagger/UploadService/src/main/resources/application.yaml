@@ -1,0 +1,5 @@
+spring:
+  main:
+    banner-mode: off
+upload-value:
+  checker-url: "http://loacalhost:8080/"
