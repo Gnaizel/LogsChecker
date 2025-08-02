@@ -27,7 +27,7 @@ def get_paths() -> Dict[str, str]:
         "SESSIONS_UPLOAD_PATH": f"{resources_dir}{os.sep}..{os.sep}sessions{os.sep}upload",
         "SESSIONS_NOT_WORK_PATH": f"{resources_dir}{os.sep}..{os.sep}sessions{os.sep}not_work",
         "DATABASE_PATH": f"{resources_dir}{os.sep}data{os.sep}soft.db",
-        "FILE_DOWNLOAD_DIR": f"C:/file"
+        "FILE_DOWNLOAD_DIR": f"C:/files"
 #          "FILE_DOWNLOAD_DIR": f"{resources_dir}{os.sep}..{os.sep}files"
     }
 

@@ -1,6 +1,8 @@
 package ru.gnaizel.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,6 +17,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UploadServiceImpl implements UploadService {
@@ -23,7 +26,8 @@ public class UploadServiceImpl implements UploadService {
     @Value("${upload-value.file-path}")
     private String filePath;
 
-    @Scheduled(fixedDelay = 60) //10800000
+    @PostConstruct
+    @Scheduled(fixedDelay = 10800000)
     @Override
     public void uploadFiles() {
         Path path = Paths.get(filePath);
@@ -35,13 +39,13 @@ public class UploadServiceImpl implements UploadService {
         }
 
         if (files.isEmpty()) {
-            throw new RuntimeException(filePath + " is empty");
+            return;
         }
 
         for (Path pathFile : files) {
             File file = pathFile.toFile();
 
-            if (client.uploadLog(file).equals(HttpStatusCode.valueOf(201))) {
+            if (client.uploadLog(file).equals(HttpStatusCode.valueOf(200))) {
                 file.delete();
             }
         }

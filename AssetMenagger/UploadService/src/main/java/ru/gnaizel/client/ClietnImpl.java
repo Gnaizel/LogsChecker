@@ -17,7 +17,7 @@ import java.io.File;
 public class ClietnImpl implements Client {
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${checker-url}")
+    @Value("${upload-value.checker-url}")
     private String URL;
 
     @Override

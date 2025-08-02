@@ -4,7 +4,6 @@ result_dir: D:/путь/к/директории/для/результатов
 logging:
   level:
     root: info
-    ru.gnaizel: debug
 spring:
   servlet:
     multipart:
