@@ -24,7 +24,20 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
 
-  asset-menagger:
+  asset-menagger-upload:
+    container_name: asset-menagger-upload
+    ports:
+      - "7070:7070"
+    build:
+      context: ./AssetMenagger/UploadService
+      dockerfile: Dockerfile
+    depends_on:
+      - asset-menagger-download
+    restart: always
+    environment:
+      - FILE_PATH=C:/
+
+  asset-menagger-download:
     build:
       context: ./AssetMenagger/ScripteTG
       dockerfile: Dockerfile

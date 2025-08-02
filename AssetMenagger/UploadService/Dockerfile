@@ -1,4 +1,7 @@
-FROM ubuntu:latest
-LABEL authors="Gnaiz"
+FROM openjdk:23-jdk-slim
 
-ENTRYPOINT ["top", "-b"]
+WORKDIR /app
+
+COPY target/UploadService.jar ./app.jar
+
+CMD ["java", "-jar", "app.jar"]
