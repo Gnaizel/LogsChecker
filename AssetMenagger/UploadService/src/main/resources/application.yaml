@@ -1,0 +1,11 @@
+logging:
+  level:
+    root: info
+spring:
+  main:
+    banner-mode: off
+upload-value:
+  checker-url: "http://localhost:8080/"
+  file-path: "C:/files"
+server:
+  port: 6060

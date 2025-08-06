@@ -1,10 +1,14 @@
-upload_dir: /путь/к/директории/для/загрузок
+upload_dir: D:/путь/к/директории/для/загрузок
+result_dir: D:/путь/к/директории/для/результатов
 
 logging:
   level:
     root: info
-    ru.gnaizel: debug
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10GB
+      max-request-size: 10GB
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,9 +17,10 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
     show-sql: false
   datasource:
-    url: jdbc:postgresql://localhost:2345/logs-checker #jdbc:postgresql://checker-db:5432/logs-checker
+    url: jdbc:postgresql://checker-db:5432/logs-checker #jdbc:postgresql://localhost:2345/logs-checker #jdbc:postgresql://checker-db:5432/logs-checker
     username: postgres
     password: postgres
+    driver-class-name: org.postgresql.Driver
   sql:
     init:
       mode: always

@@ -1,15 +1,25 @@
 package ru.gnaizel.mapper;
 
 import org.springframework.stereotype.Component;
-import ru.gnaizel.dto.log.LogUploadDto;
-import ru.gnaizel.model.FileUpload;
+import ru.gnaizel.dto.log.LogFileShortDto;
+import ru.gnaizel.dto.log.LogFileUploadInfoDto;
+import ru.gnaizel.model.LogFile;
 
 @Component
 public class LogMapper {
-    public static LogUploadDto toDto(FileUpload log) {
-        return LogUploadDto.builder()
-                .fileName(log.getFileName())
-                .fileSizeInMegabyte(log.getFileSizeInMegabyte())
+    public LogFileUploadInfoDto toUploadInfoDto(LogFile logFile) {
+        return LogFileUploadInfoDto.builder()
+                .fileName(logFile.getFileName())
+                .fileSize(logFile.getFileSize())
+                .fileSizeUnit(logFile.getFileSizeUnit())
+                .build();
+    }
+
+    public LogFileShortDto toShortDto(LogFile logFile) {
+        return LogFileShortDto.builder()
+                .fileName(logFile.getOriginalFileName())
+                .cleanLineCount(logFile.getCleanLineCount())
+                .allLineCount(logFile.getAllLineCount())
                 .build();
     }
 }

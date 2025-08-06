@@ -1,23 +1,30 @@
 package ru.gnaizel.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import ru.gnaizel.dto.log.LogUploadDto;
+import ru.gnaizel.dto.log.LogFileShortDto;
+import ru.gnaizel.dto.log.LogFileUploadInfoDto;
 import ru.gnaizel.service.log.LogsService;
 
+import java.util.List;
+
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/logs")
 public class LogsController {
     private final LogsService logsService;
 
-    @PostMapping("/upload")
-    public LogUploadDto uploadLog(@RequestParam("file") MultipartFile file,
-                                  @RequestParam("telegram-id") long telegramId) {
+    @PostMapping("/uploads")
+    public LogFileUploadInfoDto uploadLog(@RequestParam("file") MultipartFile file,
+                                          @RequestParam("telegram-id") long telegramId) {
         return logsService.uploadLog(file, telegramId);
+    }
+
+    @PatchMapping("/checks/{url}")
+    public List<LogFileShortDto> check(@PathVariable("url") String url, @RequestParam("telegram-id") long telegramId) {
+        return logsService.check(url, telegramId);
     }
 }
