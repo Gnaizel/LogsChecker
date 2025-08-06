@@ -29,7 +29,16 @@ public class UploadServiceImpl implements UploadService {
     @Scheduled(fixedDelay = 10800000)
     @Override
     public void uploadFiles() {
+        if (!Files.exists(Paths.get(filePath))) {
+            try {
+                Files.createDirectories(Paths.get(filePath));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         Path path = Paths.get(filePath);
+
         List<Path> files;
         try  {
             files = Files.list(path).toList();

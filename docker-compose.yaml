@@ -31,6 +31,10 @@ services:
     build:
       context: ./AssetMenagger/UploadService
       dockerfile: Dockerfile
+    volumes:
+      - /home/gnaizel/LogsChecker/files:/data/files
+    environment:
+      - APP_ROOT=/data/files
     depends_on:
       - asset-menagger-download
     restart: always
