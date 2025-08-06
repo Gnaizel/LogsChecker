@@ -52,6 +52,13 @@ public class LogsServiceImpl implements LogsService {
     @Transactional
     public LogFileUploadInfoDto uploadLog(MultipartFile file, long telegramId) {
         if (file.isEmpty()) throw new FileValidationException("File is empty");
+
+        if (!(file.getOriginalFilename().endsWith(".txt") ||
+                file.getOriginalFilename().endsWith(".zip") ||
+                file.getOriginalFilename().endsWith(".rar"))) {
+            throw new FileValidationException("This file type is not supported.");
+        }
+
         LogFile fileLog;
 
         try {

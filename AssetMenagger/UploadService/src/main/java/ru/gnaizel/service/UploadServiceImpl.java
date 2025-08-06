@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,20 +33,22 @@ public class UploadServiceImpl implements UploadService {
         List<Path> files;
         try  {
             files = Files.list(path).toList();
+
+
+            if (files.isEmpty()) {
+                return;
+            }
+
+            for (Path pathFile : files) {
+                File file = pathFile.toFile();
+                if (!file.getName().endsWith(".txt")) {
+                    file.delete();
+                } else if (client.uploadLog(file).equals(HttpStatusCode.valueOf(200))) {
+                    file.delete();
+                }
+            }
         } catch (IOException e) {
             throw new RuntimeException(e.getMessage());
-        }
-
-        if (files.isEmpty()) {
-            return;
-        }
-
-        for (Path pathFile : files) {
-            File file = pathFile.toFile();
-
-            if (client.uploadLog(file).equals(HttpStatusCode.valueOf(200))) {
-                file.delete();
-            }
         }
     }
 }
