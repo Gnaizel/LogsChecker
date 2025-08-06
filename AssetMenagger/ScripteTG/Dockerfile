@@ -7,6 +7,6 @@ COPY src/requirements.txt .
 
 RUN if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-COPY .. .
+COPY . .
 
 CMD ["python", "AssetMenagger/ScripteTG/src/resources/main.py"]
