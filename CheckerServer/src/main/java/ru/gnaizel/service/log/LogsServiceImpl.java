@@ -160,7 +160,7 @@ public class LogsServiceImpl implements LogsService {
 
         ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
         BlockingQueue<List<String>> resultsQueue = new LinkedBlockingQueue<>();
-        File resultFile = getResultFile(file);
+        File resultFile = getResultFile(file, url);
 
         Future<?> writerFuture = startWriterThread(executor, resultsQueue, resultFile, countWriteLine);
         processFileContent(url, file, executor, resultsQueue, countAllLine);
@@ -170,8 +170,16 @@ public class LogsServiceImpl implements LogsService {
         cleanUpResources(executor, fileFromDataBase);
     }
 
-    private File getResultFile(Path file) {
-        return Paths.get(RESULT_DIR).resolve(file.getFileName()).toFile();
+    private File getResultFile(Path file, String url) {
+        Path result = Paths.get(RESULT_DIR + "/" + url);
+        if (!Files.exists(result)){
+            try {
+                Files.createDirectory(result);
+            } catch (IOException e) {
+                throw new FileUploadError(e.getMessage());
+            }
+        }
+        return result.resolve(file.getFileName()).toFile();
     }
 
     private Future<?> startWriterThread(ExecutorService executor,
