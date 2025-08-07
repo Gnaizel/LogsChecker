@@ -8,6 +8,9 @@ services:
       - "8080:8080"
     depends_on:
       - checker-db
+    volumes:
+      - /home/gnaizel/LogsChecker/CheckerService/files:/data/files
+      - /home/gnaizel/LogsChecker/CheckerService/result:/data/result
     restart: unless-stopped
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://checker-db:5432/logs-checker
