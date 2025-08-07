@@ -18,13 +18,12 @@ public class LogsController {
     private final LogsService logsService;
 
     @PostMapping("/uploads")
-    public LogFileUploadInfoDto uploadLog(@RequestParam("file") MultipartFile file,
-                                          @RequestParam("telegram-id") long telegramId) {
-        return logsService.uploadLog(file, telegramId);
+    public LogFileUploadInfoDto uploadLog(@RequestParam("file") MultipartFile file) {
+        return logsService.uploadLog(file);
     }
 
     @PatchMapping("/checks/{url}")
-    public List<LogFileShortDto> check(@PathVariable("url") String url, @RequestParam("telegram-id") long telegramId) {
-        return logsService.check(url, telegramId);
+    public List<LogFileShortDto> check(@PathVariable("url") String url) {
+        return logsService.check(url);
     }
 }

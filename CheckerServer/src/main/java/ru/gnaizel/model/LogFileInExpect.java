@@ -16,8 +16,6 @@ public class LogFileInExpect {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private long ownerTelegramId;
-
     @JoinColumn(name = "fileId")
     @OneToOne
     private LogFile file;

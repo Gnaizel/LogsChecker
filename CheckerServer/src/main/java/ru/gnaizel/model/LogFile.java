@@ -28,7 +28,6 @@ public class LogFile {
     @Column(name = "file_size_unit")
     private FileSizeUnit fileSizeUnit;
 
-    private Long ownerId;
     private Long cleanLineCount;
     private Long allLineCount;
     private Timestamp updateTime;

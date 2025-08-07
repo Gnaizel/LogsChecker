@@ -50,7 +50,7 @@ public class LogsServiceImpl implements LogsService {
 
     @Override
     @Transactional
-    public LogFileUploadInfoDto uploadLog(MultipartFile file, long telegramId) {
+    public LogFileUploadInfoDto uploadLog(MultipartFile file) {
         if (file.isEmpty()) throw new FileValidationException("File is empty");
 
         if (!(file.getOriginalFilename().endsWith(".txt") ||
@@ -79,7 +79,6 @@ public class LogsServiceImpl implements LogsService {
             fileLog = LogFile.builder()
                     .fileName(fileName)
                     .originalFileName(file.getOriginalFilename())
-                    .ownerId(telegramId)
                     .cleanLineCount(0L)
                     .allLineCount(0L)
                     .updateTime(Timestamp.valueOf(LocalDateTime.now()))
@@ -108,7 +107,6 @@ public class LogsServiceImpl implements LogsService {
 
         LogFile fileUpload = logsRepository.save(fileLog);
         queueRepository.save(LogFileInExpect.builder()
-                .ownerTelegramId(fileUpload.getOwnerId())
                 .file(fileUpload)
                 .build());
 
@@ -117,9 +115,9 @@ public class LogsServiceImpl implements LogsService {
 
     @Override
     @Transactional
-    public List<LogFileShortDto> check(String url, long telegramId) {
+    public List<LogFileShortDto> check(String url) {
         createResultDirectory();
-        List<LogFile> logFiles = getLogFiles(telegramId);
+        List<LogFile> logFiles = getLogFiles();
         List<Path> filePaths = getFilePaths(logFiles);
 
         for (Path file : filePaths) {
@@ -138,8 +136,8 @@ public class LogsServiceImpl implements LogsService {
         }
     }
 
-    private List<LogFile> getLogFiles(long telegramId) {
-        return queueRepository.findByOwnerTelegramId(telegramId).stream()
+    private List<LogFile> getLogFiles() {
+        return queueRepository.findAll().stream()
                 .map(LogFileInExpect::getFile)
                 .toList();
     }

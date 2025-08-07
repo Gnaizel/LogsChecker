@@ -33,9 +33,9 @@ public class ClietnImpl implements Client {
 
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("file", fileUpload);
-            body.add("telegram-id", 999999L);
 
             HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+            log.info("upload {}", fileUpload.getFile().getName());
 
             return restTemplate.exchange(
                     URL + "logs/uploads",

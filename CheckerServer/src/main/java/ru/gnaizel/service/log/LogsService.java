@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface LogsService {
 
-    LogFileUploadInfoDto uploadLog(MultipartFile file, long telegramId);
+    LogFileUploadInfoDto uploadLog(MultipartFile file);
 
-    List<LogFileShortDto> check(String url, long telegramId);
+    List<LogFileShortDto> check(String url);
 }
