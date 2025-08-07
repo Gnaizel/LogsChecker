@@ -1,5 +1,5 @@
-upload_dir: D:/путь/к/директории/для/загрузок
-result_dir: D:/путь/к/директории/для/результатов
+upload_dir: "/data/files"
+result_dir: "/data/result"
 
 logging:
   level:

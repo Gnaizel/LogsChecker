@@ -5,7 +5,7 @@ spring:
   main:
     banner-mode: off
 upload-value:
-  checker-url: "http://localhost:8080/"
+  checker-url: ${CHECKER_URL}
   file-path: "/data/files"
 server:
   port: 6060
