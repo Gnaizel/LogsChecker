@@ -38,7 +38,7 @@ public class ClietnImpl implements Client {
             log.info("upload {}", fileUpload.getFile().getName());
 
             return restTemplate.exchange(
-                    URL + "logs/uploads",
+                    URL + "logs/upload",
                     HttpMethod.POST,
                     entity,
                     String.class

@@ -1,28 +1,16 @@
-logs-service:
-  url: http://logs-service:8080
-
-server:
-  port: 9090
+telegram:
+  bot:
+    token: "8030048287:AAFMbTbPt4r8m-y__b8iFBqrwDJwXDe1rpw"
+    name: "LogsParserggbot"
+checker:
+  url: "http://localhost:8080"
+#  url: "${CHECKER_URL}"
 spring:
   main:
     banner-mode: off
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  datasource:
-    url: jdbc:postgresql://localhost:3456/user-db
-    password: postgres
-    username: postgres
-    driver-class-name: org.postgresql.Driver
-  sql:
-    init:
-      mode: always
-
-telegram:
-  bot:
-    token: 6531094812:AAH-XVCMzQfBlVpetG035gIsuW0YMrxD6GY
-    name: Check AZ
-    download-path: путь/к/установке/скачиванию
+logging:
+  level:
+    ru.gnaizel.telegram: debug
+    ru.gnaizel.handler: debug
+server:
+  port: 7979

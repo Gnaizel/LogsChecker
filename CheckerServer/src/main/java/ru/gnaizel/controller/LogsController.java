@@ -17,13 +17,14 @@ import java.util.List;
 public class LogsController {
     private final LogsService logsService;
 
-    @PostMapping("/uploads")
+    @PostMapping("/upload")
     public LogFileUploadInfoDto uploadLog(@RequestParam("file") MultipartFile file) {
         return logsService.uploadLog(file);
     }
 
-    @PatchMapping("/checks/{url}")
+    @GetMapping("/check/{url}")
     public List<LogFileShortDto> check(@PathVariable("url") String url) {
+        log.info(url);
         return logsService.check(url);
     }
 }

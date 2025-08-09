@@ -1,10 +1,9 @@
 package ru.gnaizel.client;
 
-import org.springframework.core.io.Resource;
-import ru.gnaizel.model.UploadLog;
+import ru.gnaizel.model.LogFileShortDto;
+
+import java.util.List;
 
 public interface Client {
-    UploadLog uploadLog(Resource file, long telegramId);
-
-    void checkRequest(String url, long telegramId);
+    List<LogFileShortDto> sendCheckQuery(String url);
 }
